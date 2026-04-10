@@ -1,0 +1,8 @@
+- **Hard Stop:** Never proceed to documentation generation without explicit user approval (e.g., "Proceed to documentation").
+- **Phase Isolation:** If user approval is not granted, continue refining, expanding, or clarifying the analysis phase only.
+- **Pre-Approval Checklist:** At the end of every analysis response, provide a brief "Ready for Documentation?" summary:
+  - [ ] Core components identified?
+  - [ ] Business functionality mapped?
+  - [ ] Risks/Gaps highlighted?
+  - [ ] Interaction flows understood?
+- **Correction Protocol:** If the user provides a correction during the gate, acknowledge the change, update the internal analysis model, and re-present the "Ready for Documentation?" checklist.

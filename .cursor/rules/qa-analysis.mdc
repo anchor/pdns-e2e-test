@@ -1,0 +1,42 @@
+API Testing Standards:
+
+Test Structure:
+- Arrange: Prepare request payload
+- Act: Call bridge endpoint
+- Assert: Validate response
+
+Validation Rules:
+- Always validate:
+  - HTTP status code
+  - Response schema
+  - Business logic fields
+- Avoid partial assertions
+
+Data Handling:
+- Use dynamic data for zones and records
+- Ensure uniqueness (e.g., timestamps in zone names)
+- Avoid collisions across test runs
+
+Negative Testing:
+- Include scenarios for:
+  - Non-existent zone retrieval
+  - Invalid record types
+  - Deleting already deleted zones
+- Validate null/boolean responses correctly
+
+Idempotency:
+- Tests must be safe to re-run
+- Ensure cleanup:
+  - Delete created zones after test execution
+
+Logging Validation:
+- Ensure requests are logged in powerdns_api.log
+- Validate presence of:
+  - method
+  - URL
+  - payload
+  - response code
+
+Do NOT:
+- Hardcode assertions without verifying actual API behavior
+- Skip validation of edge cases

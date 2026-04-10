@@ -1,0 +1,35 @@
+Project Context:
+This is an End-to-End test automation framework validating a PHP PowerDNS library using:
+- Java (TestNG + RestAssured)
+- PHP bridge layer (bridge.php via built-in server)
+- PowerDNS API backend
+- Allure reporting
+
+Core Principles:
+- Maintain clear separation between:
+  - Test Layer (Java TestNG)
+  - API Client Layer (RestAssured)
+  - Bridge Layer (PHP)
+- Do NOT mix test assertions with request-building logic
+- Ensure tests remain deterministic and repeatable
+    - Use dynamic test data where possible
+
+Coding Rules:
+- Follow Page Object Model equivalent for APIs (API Client abstraction)
+- Avoid hardcoding test data except where defined in specification
+- Use reusable request/response builders
+- Prefer explicit validation over implicit assumptions
+- Avoid duplicated logic across tests
+
+Stability Rules:
+- Do NOT introduce flaky constructs (e.g., Thread.sleep)
+- Ensure idempotent test design (safe re-runs)
+- Tests must clean up created zones where applicable
+
+Modification Rules:
+- Preserve existing architecture
+- Do NOT refactor large sections unless explicitly requested
+- Make minimal, safe, reviewable changes
+
+Security Rules:
+- Do NOT expose API keys in logs or reports unless masked

@@ -1,0 +1,11 @@
+<?php
+
+/**
+ * Copy to config.local.php (gitignored) for local PowerDNS credentials.
+ * Prefer environment variables: PDNS_API_URL, PDNS_API_KEY, PDNS_SERVER_ID.
+ */
+return [
+    'api_url' => 'http://127.0.0.1:5337/api/v1',
+    'api_key' => 'your-api-key-here',
+    'server_id' => 'localhost',
+];

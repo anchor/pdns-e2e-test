@@ -1,0 +1,34 @@
+PHP Bridge Rules (bridge.php):
+
+Role:
+- Acts as middleware between Java tests and PowerDNS PHP library
+
+Responsibilities:
+- Accept HTTP requests: bridge.php?action=<method>
+- Initialize DN\PowerDNS\API\API
+- Execute requested method
+- Return JSON response
+
+Design Constraints:
+- Keep bridge logic thin (no business logic)
+- Delegate all logic to DN\PowerDNS library
+- Ensure consistent JSON response structure
+
+Error Handling:
+- Catch exceptions and return structured error responses
+- Do NOT expose sensitive details (API key)
+
+Logging:
+- Ensure all requests pass through RequestLogger
+- Include:
+  - action
+  - payload
+  - response
+  - timestamps
+
+Validation:
+- Validate input parameters before invoking library methods
+
+Do NOT:
+- Embed test logic inside PHP
+- Duplicate logic already present in library

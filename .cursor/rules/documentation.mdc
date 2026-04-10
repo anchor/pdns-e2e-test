@@ -1,0 +1,78 @@
+# Documentation Generation Rule (QA-Driven)
+
+## Hard Stop Rule
+NEVER generate documentation unless the user explicitly says:
+- "Proceed to documentation"
+- "Generate README"
+- "Create documentation"
+
+If not explicitly instructed → STOP.
+
+---
+
+## Target Audience
+
+Documentation must serve:
+
+### 1. QA Engineers (Primary)
+- Fast onboarding into test framework
+- Understanding test coverage and validation strategy
+- Clear mapping between test scenarios and system behavior
+
+### 2. Developers (Secondary)
+- Understanding integration points (Java → PHP → PowerDNS)
+- Understanding expected behavior from wrapper
+
+---
+
+## Source of Truth (STRICT)
+
+Documentation MUST be based ONLY on:
+
+- Actual code in repository
+- cursor/context/requirements.md
+- cursor/context/powerdns-api.md
+- cursor/context/wrapper-doc.md
+- cursor/context/expected-behavior.md
+
+---
+
+## Strict Prohibitions
+
+DO NOT:
+- Assume missing features
+- Invent APIs or behaviors
+- Add “typical framework” explanations
+- Generalize beyond provided system
+- Describe implementation that does not exist
+
+If information is missing:
+→ Explicitly state: "Not defined in current system"
+
+---
+
+## Required Documentation Sections
+
+Generate README.md with the following structure:
+
+---
+
+### 1. System Overview
+- Purpose of framework
+- Scope (E2E validation of PHP wrapper)
+- System under test clearly defined
+
+---
+
+### 2. Architecture
+
+Must include:
+
+```plaintext
+Java TestNG Framework
+        ↓
+PHP Bridge (bridge.php)
+        ↓
+PowerDNS PHP Wrapper (SUT)
+        ↓
+PowerDNS API Server
