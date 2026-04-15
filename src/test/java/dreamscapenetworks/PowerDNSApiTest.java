@@ -10,6 +10,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,8 +19,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.core.Is.is;
@@ -505,6 +508,351 @@ public class PowerDNSApiTest {
                 .queryParam("type", "NOT_A_VALID_TYPE")
                 .when()
                 .get("/bridge.php")
+                .then()
+                .statusCode(400)
+                .body("error", notNullValue());
+    }
+
+    @Test
+    public void testReplaceRRSetMultiRecordDisabledFlag() {
+        String zone = uniqueZoneFqdn();
+        String host = "multi." + zone;
+        registerCleanup(zone);
+        createZoneRaw("{\"name\":\"" + zone + "\"}");
+
+        String replaceBody = "{"
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":["
+                + "{\"content\":\"192.0.2.1\",\"disabled\":false},"
+                + "{\"content\":\"192.0.2.2\",\"disabled\":true}"
+                + "]}]"
+                + "}";
+
+        given()
+                .queryParam("action", "replaceRRSet")
+                .queryParam("zoneId", zone)
+                .contentType(ContentType.JSON)
+                .body(replaceBody)
+                .when()
+                .put("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("replaced"));
+
+        given()
+                .queryParam("action", "getSpecificRRSet")
+                .queryParam("zoneId", zone)
+                .queryParam("name", host)
+                .queryParam("type", "A")
+                .when()
+                .get("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("[0].records.size()", equalTo(2))
+                .body("[0].records.content", containsInAnyOrder("192.0.2.1", "192.0.2.2"))
+                .body("[0].records.findAll { it.disabled == true }.size()", equalTo(1))
+                .body("[0].records.findAll { it.disabled == true }[0].content", equalTo("192.0.2.2"));
+    }
+
+    /**
+     * Asserts client-supplied {@code modifiedAt} survives a create + GET round-trip. PowerDNS may
+     * normalize timestamps; if this flakes, relax the assertion or compare only the echoed value
+     * shape (integer vs string).
+     */
+    @Test
+    public void testRRSetCommentModifiedAtRoundTrip() {
+        String zone = uniqueZoneFqdn();
+        String host = "meta." + zone;
+        registerCleanup(zone);
+        int modifiedAt = 1704067200;
+        String payload = "{"
+                + "\"name\":\"" + zone + "\","
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.88\"}],"
+                + "\"comments\":[{\"content\":\"Stamped\",\"account\":\"e2e\",\"modifiedAt\":"
+                + modifiedAt + "}]"
+                + "}]"
+                + "}";
+
+        given()
+                .queryParam("action", "createZone")
+                .contentType(ContentType.JSON)
+                .body(payload)
+                .when()
+                .post("/bridge.php")
+                .then()
+                .statusCode(201);
+
+        given()
+                .queryParam("action", "getSpecificRRSet")
+                .queryParam("zoneId", zone)
+                .queryParam("name", host)
+                .queryParam("type", "A")
+                .when()
+                .get("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("[0].comments.size()", greaterThanOrEqualTo(1))
+                .body(
+                        "[0].comments[0].modifiedAt",
+                        anyOf(
+                                equalTo(modifiedAt),
+                                equalTo((long) modifiedAt),
+                                equalTo(BigDecimal.valueOf(modifiedAt))));
+    }
+
+    @Test
+    public void testRRSetMultipleCommentsRoundTrip() {
+        String zone = uniqueZoneFqdn();
+        String host = "notes." + zone;
+        registerCleanup(zone);
+        String payload = "{"
+                + "\"name\":\"" + zone + "\","
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.77\"}],"
+                + "\"comments\":["
+                + "{\"content\":\"First note\",\"account\":\"qa\"},"
+                + "{\"content\":\"Second note\",\"account\":\"qa2\"}"
+                + "]"
+                + "}]"
+                + "}";
+
+        given()
+                .queryParam("action", "createZone")
+                .contentType(ContentType.JSON)
+                .body(payload)
+                .when()
+                .post("/bridge.php")
+                .then()
+                .statusCode(201);
+
+        given()
+                .queryParam("action", "getSpecificRRSet")
+                .queryParam("zoneId", zone)
+                .queryParam("name", host)
+                .queryParam("type", "A")
+                .when()
+                .get("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("[0].comments.size()", greaterThanOrEqualTo(2))
+                .body("[0].comments.content", hasItems("First note", "Second note"));
+    }
+
+    /**
+     * When {@code comments} is omitted from the replace payload, the bridge does not call
+     * {@code setComments}; existing comments should remain if the PHP library preserves them.
+     */
+    @Test
+    public void testReplaceRRSetOmitCommentsKeyPreservesExistingComments() {
+        String zone = uniqueZoneFqdn();
+        String host = "keep." + zone;
+        registerCleanup(zone);
+        String createPayload = "{"
+                + "\"name\":\"" + zone + "\","
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.10\"}],"
+                + "\"comments\":[{\"content\":\"Do not drop\",\"account\":\"e2e\"}]"
+                + "}]"
+                + "}";
+        createZoneRaw(createPayload);
+
+        String replaceBody = "{"
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":7200,"
+                + "\"records\":[{\"content\":\"192.0.2.20\"}]"
+                + "}]"
+                + "}";
+
+        given()
+                .queryParam("action", "replaceRRSet")
+                .queryParam("zoneId", zone)
+                .contentType(ContentType.JSON)
+                .body(replaceBody)
+                .when()
+                .put("/bridge.php")
+                .then()
+                .statusCode(200);
+
+        given()
+                .queryParam("action", "getSpecificRRSet")
+                .queryParam("zoneId", zone)
+                .queryParam("name", host)
+                .queryParam("type", "A")
+                .when()
+                .get("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("[0].records[0].content", equalTo("192.0.2.20"))
+                .body("[0].ttl", equalTo(7200))
+                .body("[0].comments.size()", greaterThanOrEqualTo(1))
+                .body("[0].comments[0].content", equalTo("Do not drop"));
+    }
+
+    @Test
+    public void testReplaceRRSetUpdatesComments() {
+        String zone = uniqueZoneFqdn();
+        String host = "swap." + zone;
+        registerCleanup(zone);
+        String createPayload = "{"
+                + "\"name\":\"" + zone + "\","
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.30\"}],"
+                + "\"comments\":[{\"content\":\"Original\",\"account\":\"e2e\"}]"
+                + "}]"
+                + "}";
+        createZoneRaw(createPayload);
+
+        String replaceBody = "{"
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.30\"}],"
+                + "\"comments\":[{\"content\":\"Replaced note\",\"account\":\"e2e\"}]"
+                + "}]"
+                + "}";
+
+        given()
+                .queryParam("action", "replaceRRSet")
+                .queryParam("zoneId", zone)
+                .contentType(ContentType.JSON)
+                .body(replaceBody)
+                .when()
+                .put("/bridge.php")
+                .then()
+                .statusCode(200);
+
+        given()
+                .queryParam("action", "getSpecificRRSet")
+                .queryParam("zoneId", zone)
+                .queryParam("name", host)
+                .queryParam("type", "A")
+                .when()
+                .get("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("[0].comments[0].content", equalTo("Replaced note"));
+    }
+
+    @Test
+    public void testReplaceRRSetWithEmptyCommentsClearsComments() {
+        String zone = uniqueZoneFqdn();
+        String host = "clear." + zone;
+        registerCleanup(zone);
+        String createPayload = "{"
+                + "\"name\":\"" + zone + "\","
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.40\"}],"
+                + "\"comments\":[{\"content\":\"Gone soon\",\"account\":\"e2e\"}]"
+                + "}]"
+                + "}";
+        createZoneRaw(createPayload);
+
+        String replaceBody = "{"
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.40\"}],"
+                + "\"comments\":[]"
+                + "}]"
+                + "}";
+
+        given()
+                .queryParam("action", "replaceRRSet")
+                .queryParam("zoneId", zone)
+                .contentType(ContentType.JSON)
+                .body(replaceBody)
+                .when()
+                .put("/bridge.php")
+                .then()
+                .statusCode(200);
+
+        given()
+                .queryParam("action", "getSpecificRRSet")
+                .queryParam("zoneId", zone)
+                .queryParam("name", host)
+                .queryParam("type", "A")
+                .when()
+                .get("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("[0].comments.size()", equalTo(0));
+    }
+
+    @Test
+    public void testDeleteRRSetsWithTwoKeys() {
+        String zone = uniqueZoneFqdn();
+        String hostA = "one." + zone;
+        String hostB = "two." + zone;
+        registerCleanup(zone);
+        String createPayload = "{"
+                + "\"name\":\"" + zone + "\","
+                + "\"rrsets\":["
+                + "{\"name\":\"" + hostA + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.61\"}]},"
+                + "{\"name\":\"" + hostB + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.62\"}]}"
+                + "]"
+                + "}";
+        createZoneRaw(createPayload);
+
+        String deleteBody = "{"
+                + "\"rrsets\":["
+                + "{\"name\":\"" + hostA + "\",\"type\":\"A\"},"
+                + "{\"name\":\"" + hostB + "\",\"type\":\"A\"}"
+                + "]"
+                + "}";
+
+        given()
+                .queryParam("action", "deleteRRSets")
+                .queryParam("zoneId", zone)
+                .contentType(ContentType.JSON)
+                .body(deleteBody)
+                .when()
+                .delete("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("deleted"));
+
+        given()
+                .queryParam("action", "getSpecificRRSet")
+                .queryParam("zoneId", zone)
+                .queryParam("name", hostA)
+                .queryParam("type", "A")
+                .when()
+                .get("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("size()", equalTo(0));
+
+        given()
+                .queryParam("action", "getSpecificRRSet")
+                .queryParam("zoneId", zone)
+                .queryParam("name", hostB)
+                .queryParam("type", "A")
+                .when()
+                .get("/bridge.php")
+                .then()
+                .statusCode(200)
+                .body("size()", equalTo(0));
+    }
+
+    @Test
+    public void testReplaceRRSetCommentsMustBeArrayWhenPresent() {
+        String zone = uniqueZoneFqdn();
+        String host = "bad." + zone;
+        registerCleanup(zone);
+        createZoneRaw("{\"name\":\"" + zone + "\"}");
+
+        String replaceBody = "{"
+                + "\"rrsets\":[{\"name\":\"" + host + "\",\"type\":\"A\",\"ttl\":3600,"
+                + "\"records\":[{\"content\":\"192.0.2.70\"}],"
+                + "\"comments\":\"not-an-array\""
+                + "}]"
+                + "}";
+
+        given()
+                .queryParam("action", "replaceRRSet")
+                .queryParam("zoneId", zone)
+                .contentType(ContentType.JSON)
+                .body(replaceBody)
+                .when()
+                .put("/bridge.php")
                 .then()
                 .statusCode(400)
                 .body("error", notNullValue());
