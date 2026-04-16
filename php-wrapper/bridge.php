@@ -422,6 +422,16 @@ function rrsetToArray(object $r): array
 }
 
 /**
+ * Maps JSON rrset objects to RRSet instances.
+ *
+ * Comments: if the JSON object has a "comments" key and its value is an array (including []),
+ * RRSet::setComments() is called so an explicit empty array clears comments on replace. If
+ * "comments" is omitted, setComments is not called (library-dependent whether existing comments
+ * survive a replace).
+ *
+ * Records: "records" is optional; omitted or empty yields an RRSet with no records. Prefer
+ * deleteRRSets to remove an RRSet if the server rejects a zero-record replace.
+ *
  * @param array<int, array<string, mixed>> $data
  * @return array<int, RRSet>
  */
@@ -443,7 +453,11 @@ function mapInputToRRSets(array $data): array
         }
 
         $comments = [];
-        if (!empty($item['comments']) && is_array($item['comments'])) {
+        $hasCommentsKey = array_key_exists('comments', $item);
+        if ($hasCommentsKey) {
+            if (!is_array($item['comments'])) {
+                throw new RuntimeException('comments must be an array when provided', 400);
+            }
             foreach ($item['comments'] as $c) {
                 if (!is_array($c) || !isset($c['content'])) {
                     throw new RuntimeException('Each comment requires content', 400);
@@ -464,7 +478,7 @@ function mapInputToRRSets(array $data): array
         $ttl = isset($item['ttl']) ? (int) $item['ttl'] : 3600;
 
         $rr = new RRSet((string) $item['name'], $type, $ttl, $records);
-        if ($comments !== []) {
+        if ($hasCommentsKey) {
             $rr->setComments($comments);
         }
         $rrsets[] = $rr;

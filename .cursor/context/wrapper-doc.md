@@ -12,6 +12,8 @@ It enables:
 
 The library is accessed through a central API class and exposes domain-specific APIs for zones and rrsets.
 
+For the HTTP bridge’s RRSet JSON rules (including when `"comments": []` clears vs omitting the key), see **README §5.1** in this repository.
+
 ---
 
 ## Core Entry Point
