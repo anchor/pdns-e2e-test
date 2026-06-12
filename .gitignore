@@ -39,6 +39,7 @@ build/
 ### PHP bridge secrets & logs ###
 php-wrapper/config.local.php
 php-wrapper/powerdns_api.log
+php-wrapper/vendor/
 
 ### Mac OS ###
 .DS_Store
