@@ -19,13 +19,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.anyOf;
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.hasItems;
-import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.*;
 import static org.hamcrest.core.Is.is;
 
 @Feature("PowerDNS bridge")
@@ -58,13 +52,8 @@ public class PowerDNSApiTest {
                     .queryParam("id", zoneId)
                     .when()
                     .delete("/bridge.php");
-
-            System.out.println("Delete Zone Response:");
-            System.out.println(response.asString());
-
             response.then()
-                    .log().all()
-                    .statusCode(anyOf(is(204), is(200)));
+                    .statusCode(anyOf(is(204), is(404)));
         }
         zonesToDelete.clear();
     }
@@ -221,10 +210,10 @@ public class PowerDNSApiTest {
                 .when()
                 .delete("/bridge.php")
                 .then()
-                .log().all()
                 .statusCode(404)
+                .log().all()
                 .contentType(ContentType.JSON)
-                .body("deleted", equalTo(false));
+                .body("error", containsString("Failed to DELETE zone"));
     }
 
     @Test(enabled = true)

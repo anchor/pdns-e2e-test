@@ -175,22 +175,22 @@ try {
                     throw new RuntimeException('ID required', 400);
                 }
                 $zoneIdForLog = $zoneId;
-                try{
-                    $existing = $api->zones()->get($zoneId);
-                    if ($existing === null) {
-                       /* $httpCode = 200;
-                        $responseBody = json_encode(['deleted' => false], JSON_THROW_ON_ERROR);*/
-                    } else {
-                        $api->zones()->delete($zoneId);
-                        $httpCode = 204;
-                        $responseBody = '';
-                        $noJsonBody = true;
+                try {
+                    $api->zones()->delete($zoneId);
+                } catch (PowerDNSException $e) {
+                    if ((int) $e->getCode() === 404) {
+                        $httpCode = 404;
+                        $responseBody = json_encode([
+                            'deleted' => false,
+                            'error' => 'Zone not found',
+                        ], JSON_THROW_ON_ERROR);
+                        break;
                     }
-                }catch (Exception $e){
-                    //echo "Error: " . $e->getMessage();
-                    $httpCode = 404;
-                    $responseBody = json_encode(['deleted' => false, 'error'=>$e->getMessage()], JSON_THROW_ON_ERROR);
-                    }
+                    throw $e;
+                }
+                $httpCode = 204;
+                $responseBody = '';
+                $noJsonBody = true;
                 break;
 
             case 'getAllRRSets':

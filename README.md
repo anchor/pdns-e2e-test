@@ -55,7 +55,7 @@ Bridge `action` values map to library usage patterns described in the [PHP libra
 | `getZone` | GET | `$api->zones()->get($id)` |
 | `createZone` | POST | `new Zone(...)` + optional RRsets JSON → `$api->zones()->create($zone)` |
 | `updateZone` | PUT or PATCH | `new Zone(...)` + `$api->zones()->update($id, $zone)` |
-| `deleteZone` | DELETE | Pre-check with `get`; `$api->zones()->delete($id)` or `{"deleted":false}` |
+| `deleteZone` | DELETE | `$api->zones()->delete($id)` → **204**; missing zone → **404** + `{"deleted":false,"error":"Zone not found"}` |
 | `getAllRRSets` | GET | `$api->rrsets($zoneId)->getAll()` |
 | `getSpecificRRSet` | GET | `$api->rrsets($zoneId)->get($name, $type?)` — `type` query optional |
 | `replaceRRSet` | PUT | `$api->rrsets($zoneId)->replace([...])` |
@@ -128,7 +128,7 @@ All cases live in [`PowerDNSApiTest.java`](src/test/java/dreamscapenetworks/Powe
 | `testFetchAllRRSets` | `getAllRRSets` **200**, array size ≥ 0; log |
 | `testFetchSpecificRRSet` | Zone + A record → `getSpecificRRSet` **200**, name/type/records; log |
 | `testGetNonExistentZone` | **404**, `error` present |
-| `testDeleteNonExistentZone` | **200**, `deleted=false` |
+| `testDeleteNonExistentZone` | **404**, `deleted=false`, `error` present |
 | `testReplaceRRSet` | `replaceRRSet` **200** + follow-up GET shows updated content |
 | `testReplaceAllRRSets` | **200**, `status=replaced_all` |
 | `testDeleteRRSets` | Delete then GET returns empty list (`size() == 0`) |
@@ -162,7 +162,7 @@ Reference: [PHP library spec](https://confluence.newfold.com/display/APACDEV/PHP
 | `zones()->create` without RRsets | Yes | — |
 | `zones()->create` with RRsets | Yes (A, MX + comments) | Spec also shows CNAME and multi-RRset create; E2E does not use every record type |
 | `zones()->update` | Yes (**PATCH** only in tests) | Bridge allows **PUT**; not exercised in Java |
-| `zones()->delete` | Yes + idempotent delete | Matches spec idea of non-fatal missing zone (bridge returns `deleted:false`) |
+| `zones()->delete` | Yes | Missing zone → bridge **404** + `deleted:false` (library throws on `delete`; bridge maps **404** only) |
 | List zones | No | **Not defined in current bridge** |
 | `rrsets($zone)->getAll` | Yes | — |
 | `rrsets($zone)->get($name)` only | Partially | Bridge supports omitting `type`; **no** dedicated Java test for name-only query |
