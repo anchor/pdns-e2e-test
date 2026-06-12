@@ -1,2 +1,28 @@
 {
+  "name": "newfold/pdns-e2e-bridge",
+  "description": "PHP bridge for PowerDNS E2E tests",
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "authors": [
+    {
+      "name": "Sanjeewa Rathnayake",
+      "email": "sanjeewa.rathnayake@dreamscapenetworks.com"
+    }
+  ],
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "https://composer.ds.network/APIWrapper/"
+    },
+    {
+      "type": "composer",
+      "url": "https://composer.ds.network/Kernel"
+    }
+  ],
+  "require": {
+    "apiwrp/powerdns": "0.0.1"
+  },
+  "config": {
+    "sort-packages": true
+  }
 }

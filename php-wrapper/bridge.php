@@ -4,13 +4,64 @@ declare(strict_types=1);
 require_once __DIR__ . '/vendor/autoload.php';
 
 use DN\PowerDNS\API\API;
-use DN\PowerDNS\Zone;
-use DN\PowerDNS\RRSet;
-use DN\PowerDNS\RRSetRecord;
-use DN\PowerDNS\RRSetComment;
-use DN\PowerDNS\RecordType;
-use DN\PowerDNS\RequestLogger;
+use DN\PowerDNS\Entity\Zone;
+use DN\PowerDNS\Entity\RRSet;
+use DN\PowerDNS\Entity\RRSetRecord;
+use DN\PowerDNS\Entity\RRSetComment;
+use DN\PowerDNS\Enum\RecordType;
+use DN\PowerDNS\Logging\RequestLogger;
 use DN\PowerDNS\Exception as PowerDNSException;
+
+class FileLogger implements RequestLogger
+{
+    private string $logFile;
+
+    public function __construct(string $filename = 'powerdns_api.log')
+    {
+        $this->logFile = __DIR__ . '/' . $filename;
+    }
+
+    public function log(
+        string $zoneId,
+        string $url,
+        string $serverId,
+        string $method,
+        string $request_data,
+        ?string $response_data,
+        int $http_code,
+        float $request_timestamp,
+        float $response_timestamp
+    ): void {
+        $logEntry = sprintf(
+            "[%s] action=%s | method=%s | zoneId=%s | url=%s | serverId=%s | status=%d | req_ts=%d | resp_ts=%d | req=%s | resp=%s\n",
+            date('Y-m-d H:i:s', (int)$request_timestamp),
+            $this->extractActionFromRequestData($request_data),
+            $method,
+            $zoneId,
+            $url,
+            $serverId,
+            $http_code,
+            $request_timestamp,
+            $response_timestamp,
+            $request_data,
+            $response_data ?? 'NULL'
+        );
+        file_put_contents($this->logFile, $logEntry, FILE_APPEND);
+    }
+
+    private function extractActionFromRequestData(string $request_data): string
+    {
+        $decoded = json_decode($request_data, true);
+        if (is_array($decoded) && isset($decoded['action']) && is_string($decoded['action'])) {
+            return $decoded['action'];
+        }
+
+        return '';
+    }
+}
+
+
+
 
 $localFile = __DIR__ . '/config.local.php';
 $local = is_file($localFile) ? require $localFile : [];
@@ -37,7 +88,7 @@ $httpCode = 500;
 $responseBody = '';
 $noJsonBody = false;
 
-$fileLogger = new FileLogger();
+$fileLogger = new FileLogger("powerdns_api.log");
 $requestLogPayload = buildRequestLogPayload($action, $input, $_GET, $url);
 
 try {
@@ -87,10 +138,10 @@ try {
                     throw new RuntimeException('name required', 400);
                 }
                 $zoneIdForLog = $body['name'];
-                $zone = new Zone($body['name']);
-                if (isset($body['rrsets']) && is_array($body['rrsets'])) {
-                    $zone->setRRSets(mapInputToRRSets($body['rrsets']));
-                }
+                $zone = new Zone(name: $body['name'], kind: 'Master');
+                  if (isset($body['rrsets']) && is_array($body['rrsets'])) {
+                      $zone->setRRSets(mapInputToRRSets($body['rrsets']));
+                  }
                 $api->zones()->create($zone);
                 $httpCode = 201;
                 $responseBody = json_encode(['status' => 'created'], JSON_THROW_ON_ERROR);
@@ -124,16 +175,22 @@ try {
                     throw new RuntimeException('ID required', 400);
                 }
                 $zoneIdForLog = $zoneId;
-                $existing = $api->zones()->get($zoneId);
-                if ($existing === null) {
-                    $httpCode = 200;
-                    $responseBody = json_encode(['deleted' => false], JSON_THROW_ON_ERROR);
-                } else {
+                try {
                     $api->zones()->delete($zoneId);
-                    $httpCode = 204;
-                    $responseBody = '';
-                    $noJsonBody = true;
+                } catch (PowerDNSException $e) {
+                    if ((int) $e->getCode() === 404) {
+                        $httpCode = 404;
+                        $responseBody = json_encode([
+                            'deleted' => false,
+                            'error' => 'Zone not found',
+                        ], JSON_THROW_ON_ERROR);
+                        break;
+                    }
+                    throw $e;
                 }
+                $httpCode = 204;
+                $responseBody = '';
+                $noJsonBody = true;
                 break;
 
             case 'getAllRRSets':
@@ -170,11 +227,16 @@ try {
                 if ($typeString !== null && $typeString !== '') {
                     $type = recordTypeFromString($typeString);
                 }
-                $rrApi = $api->rrsets($zoneId);
-                attachLibraryLogger($rrApi, $fileLogger);
-                $rrsets = $rrApi->get($name, $type);
-                $httpCode = 200;
-                $responseBody = json_encode(rrsetsToArray($rrsets), JSON_THROW_ON_ERROR);
+
+                $zone = $api->zones()->get($zoneId);
+                if ($zone === null) {
+                    $httpCode = 404;
+                    $responseBody = json_encode(['error' => 'Zone not found'], JSON_THROW_ON_ERROR);
+                } else {
+                    $rrsets = filterRRSetsByNameAndType($zone->getRRSets(), $name, $type);
+                    $httpCode = 200;
+                    $responseBody = json_encode(rrsetsToArray($rrsets), JSON_THROW_ON_ERROR);
+                }
                 break;
 
             case 'replaceRRSet':
@@ -407,7 +469,7 @@ function rrsetToArray(object $r): array
             $comments[] = [
                 'content' => $c->content,
                 'account' => $c->account ?? '',
-                'modifiedAt' => $c->modifiedAt ?? null,
+                'modified_at' => $c->modified_at ?? null,
             ];
         }
     }
@@ -507,50 +569,32 @@ function mapInputToRRSetKeys(array $data): array
     return $rrsets;
 }
 
-class FileLogger implements RequestLogger
+/**
+ * @param array<int, object> $rrsets
+ * @return array<int, object>
+ */
+function filterRRSetsByNameAndType(array $rrsets, string $name, ?RecordType $type): array
 {
-    private string $logFile;
+    $normalizedName = rtrim($name, '.') . '.';
 
-    public function __construct(string $filename = 'powerdns_api.log')
-    {
-        $this->logFile = __DIR__ . '/' . $filename;
-    }
+    return array_values(array_filter(
+        $rrsets,
+        static function (object $rrset) use ($normalizedName, $type): bool {
+            $rrsetName = rtrim((string) $rrset->name, '.') . '.';
+            if ($rrsetName !== $normalizedName) {
+                return false;
+            }
 
-    public function log(
-        string $zoneId,
-        string $url,
-        string $serverId,
-        string $method,
-        string $request_data,
-        ?string $response_data,
-        int $http_code,
-        int $request_timestamp,
-        int $response_timestamp
-    ): void {
-        $logEntry = sprintf(
-            "[%s] action=%s | method=%s | zoneId=%s | url=%s | serverId=%s | status=%d | req_ts=%d | resp_ts=%d | req=%s | resp=%s\n",
-            date('Y-m-d H:i:s', $request_timestamp),
-            $this->extractActionFromRequestData($request_data),
-            $method,
-            $zoneId,
-            $url,
-            $serverId,
-            $http_code,
-            $request_timestamp,
-            $response_timestamp,
-            $request_data,
-            $response_data ?? 'NULL'
-        );
-        file_put_contents($this->logFile, $logEntry, FILE_APPEND);
-    }
+            if ($type === null) {
+                return true;
+            }
 
-    private function extractActionFromRequestData(string $request_data): string
-    {
-        $decoded = json_decode($request_data, true);
-        if (is_array($decoded) && isset($decoded['action']) && is_string($decoded['action'])) {
-            return $decoded['action'];
+            $rrsetType = $rrset->type ?? null;
+            if ($rrsetType instanceof \UnitEnum) {
+                return $rrsetType === $type;
+            }
+
+            return (string) $rrsetType === $type->name;
         }
-
-        return '';
-    }
+    ));
 }
