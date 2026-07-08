@@ -72,10 +72,10 @@ Aligned with [`.cursor/context/wrapper-doc.md`](.cursor/context/wrapper-doc.md) 
 
 | Concept | In library (spec) | In bridge I/O |
 |---------|-------------------|---------------|
-| Zone | `DN\PowerDNS\Zone` | Create/update: JSON `name`, optional `rrsets` array |
+| Zone | `DN\PowerDNS\Zone` | Create: JSON `name`, optional `kind` (defaults to **Native**), optional `rrsets` array. Update: JSON `name` |
 | RRSet | `DN\PowerDNS\RRSet` | JSON `name`, `type` (enum **name** string, e.g. `A`, `MX`), `ttl`, `records`, optional `comments` |
 | Record | `DN\PowerDNS\RRSetRecord` | JSON `content`, optional `disabled` |
-| Comment | `DN\PowerDNS\RRSetComment` | JSON `content`, optional `account`, optional `modifiedAt` |
+| Comment | `DN\PowerDNS\RRSetComment` | JSON `content`, optional `account`, optional `modified_at` |
 | Record types | `RecordType` enum in spec: A, AAAA, CNAME, MX, SRV, TXT, CAA, NS, SOA | Same set accepted when parsed by `recordTypeFromString()` in [`bridge.php`](php-wrapper/bridge.php) |
 
 **Zone GET response shape (bridge):** `id`, `name`, `rrsets` (each RRset: `name`, `type`, `ttl`, `records`, `comments` via `rrsetToArray()`).
@@ -90,9 +90,10 @@ When building `RRSet` objects in [`mapInputToRRSets()`](php-wrapper/bridge.php),
 | `type` | Yes | `RecordType` enum **name** (e.g. `A`, `MX`) |
 | `ttl` | No | Defaults to **3600** when omitted |
 | `records` | No | Array of `{ "content": "…", "disabled"?: boolean }`. Omitted or `[]` yields an RRSet with **no** records in the PHP object; a zero-record **replace** may be rejected by PowerDNS—use **`deleteRRSets`** to remove an RRSet |
-| `comments` | No | If the **`comments` key is present** and the value is an array (including **`[]`**), `setComments()` is called with that list, so **`"comments": []` clears** comments on replace. If **`comments` is omitted**, `setComments` is **not** called; whether existing comments survive a replace depends on the PHP library. If `comments` is present but not an array, the bridge returns **400** |
+| `comments` | No | If the **`comments` key is present** and the value is an array (including **`[]`**), `setComments()` is called with that list, so **`"comments": []` clears** comments on replace. If **`comments` is omitted**, `setComments` is **not** called; on the **current library stack**, replace may still **clear** comments when `RRSet::toArray()` includes an empty comments list in the PATCH payload. If `comments` is present but not an array, the bridge returns **400** |
+| `modified_at` | No | Optional epoch on comment objects (snake_case; matches GET output and library entity) |
 
-GET responses echo `records[].content`, `records[].disabled`, `comments[].content`, `comments[].account`, and `comments[].modifiedAt` (may be null) per `rrsetToArray()`.
+GET responses echo `records[].content`, `records[].disabled`, `comments[].content`, `comments[].account`, and `comments[].modified_at` (may be null) per `rrsetToArray()`.
 
 **PowerDNS native RRset `changetype` (REPLACE, DELETE, …):** Described in [`.cursor/context/powerdns-api.md`](.cursor/context/powerdns-api.md). The bridge does **not** expose changetype strings; it maps actions to library methods.
 
@@ -102,8 +103,8 @@ GET responses echo `records[].content`, `records[].disabled`, `comments[].conten
 
 **RequestLogger:** The [PHP library spec](https://confluence.newfold.com/display/APACDEV/PHP+Library+Spec?focusedCommentId=354869054#comment-354869054) defines `DN\PowerDNS\RequestLogger` with a `log(zoneId, url, serverId, method, request_data, response_data, http_code, …)` signature. The bridge implements this as **`FileLogger`** in [`bridge.php`](php-wrapper/bridge.php), writing one line per request to `powerdns_api.log`.
 
-- **Every response** (including errors) triggers `FileLogger::log` in a `finally` block.
-- **RRSets paths** also call `attachLibraryLogger()` so the library may emit additional log lines if it supports `setLogger()` on the RRsets API object.
+- **Every response** (including errors) triggers `FileLogger::log` in a `finally` block (bridge-level log with `action`, query, body).
+- **Library HTTP calls** also log via `RequestLogger` passed to `API` constructor (`ApiClient` → `powerdns_api.log` with raw PDNS request/response).
 - **Request payload JSON** (`req=` segment) is built by `buildRequestLogPayload()`: `action`, redacted `query`, **`url`** (API base URL), and optional `body`. Sensitive keys in nested structures are redacted (`api_key`, `apiKey`, `password`, `API_KEY`).
 
 **Errors:**
@@ -128,7 +129,7 @@ All cases live in [`PowerDNSApiTest.java`](src/test/java/dreamscapenetworks/Powe
 | `testFetchAllRRSets` | `getAllRRSets` **200**, array size ≥ 0; log |
 | `testFetchSpecificRRSet` | Zone + A record → `getSpecificRRSet` **200**, name/type/records; log |
 | `testGetNonExistentZone` | **404**, `error` present |
-| `testDeleteNonExistentZone` | **404**, `deleted=false`, `error` present |
+| `testDeleteNonExistentZone` | **404**, `deleted=false`, `error=Zone not found` |
 | `testReplaceRRSet` | `replaceRRSet` **200** + follow-up GET shows updated content |
 | `testReplaceAllRRSets` | **200**, `status=replaced_all` |
 | `testDeleteRRSets` | Delete then GET returns empty list (`size() == 0`) |
@@ -141,9 +142,9 @@ All cases live in [`PowerDNSApiTest.java`](src/test/java/dreamscapenetworks/Powe
 | `testUnknownActionReturns404` | Unknown `action` → **404** |
 | `testGetSpecificRRSetWithInvalidRecordTypeReturns400` | Invalid `type` string → **400** |
 | `testReplaceRRSetMultiRecordDisabledFlag` | `replaceRRSet` with two A records, one `disabled: true` → GET asserts counts, contents, and disabled flag |
-| `testRRSetCommentModifiedAtRoundTrip` | Create RRSet with fixed `modifiedAt` → GET echoes same epoch (client-set stamp; relax if PDNS normalizes) |
+| `testRRSetCommentmodified_atRoundTrip` | Create RRSet with fixed `modified_at` → GET echoes timestamp (not null) |
 | `testRRSetMultipleCommentsRoundTrip` | Create with two comments → GET asserts both contents |
-| `testReplaceRRSetOmitCommentsKeyPreservesExistingComments` | Replace with new records/TTL but **no** `comments` key → GET still shows prior comment (requires library to preserve when `setComments` is omitted) |
+| `testReplaceRRSetOmitCommentsKeyClearsCommentsOnReplace` | Replace without `comments` key → GET shows **zero** comments (current library behavior) |
 | `testReplaceRRSetUpdatesComments` | Replace with new `comments` array → GET shows updated comment text |
 | `testReplaceRRSetWithEmptyCommentsClearsComments` | Replace with `"comments": []` → GET `comments` length **0** |
 | `testDeleteRRSetsWithTwoKeys` | `deleteRRSets` body lists **two** name/type keys → both RRSets gone on GET |
@@ -171,9 +172,9 @@ Reference: [PHP library spec](https://confluence.newfold.com/display/APACDEV/PHP
 | `replaceAll` | Yes (`replaced_all`) | If library lacks `replaceAll`, bridge falls back to `replace` (behavioral difference not asserted against PDNS state) |
 | `delete` multiple keys | Yes (`testDeleteRRSetsWithTwoKeys`) | Matches spec “two keys” delete pattern |
 | `RRSetRecord` disabled flag | Yes (`testReplaceRRSetMultiRecordDisabledFlag`) | Bridge maps `disabled`; multi-record GET asserts mixed flags |
-| `RRSetComment` with timestamp | Yes (`testRRSetCommentModifiedAtRoundTrip`) | Bridge JSON `modifiedAt`; asserts client-supplied epoch on GET |
+| `RRSetComment` with timestamp | Yes (`testRRSetCommentmodified_atRoundTrip`) | Bridge JSON `modified_at`; asserts non-null on GET |
 | Multi-comment RRSet | Yes (`testRRSetMultipleCommentsRoundTrip`, replace comment tests) | Order not guaranteed; assertions use `hasItems` / single index where appropriate |
-| Comments: clear vs omit | Yes (`testReplaceRRSetWithEmptyCommentsClearsComments`, `testReplaceRRSetOmitCommentsKeyPreservesExistingComments`) | Depends on PHP library when `comments` key is omitted; see README §5.1 |
+| Comments: clear vs omit | Yes (`testReplaceRRSetWithEmptyCommentsClearsComments`, `testReplaceRRSetOmitCommentsKeyClearsCommentsOnReplace`) | Omit clears on current library stack; see README §5.1 |
 | In-memory `setRecords` / `setComments` on `RRSet` | No | Bridge uses JSON → `mapInputToRRSets`; not the spec’s mutate-then-call pattern |
 | `RequestLogger` / `logRequest` example | Partially | FileLogger + optional library logger on RRsets; zones() calls do not attach library logger in bridge |
 | Spec future: “batch update facility” | No | Explicitly noted as future in the PHP library spec; **not in repo** |
