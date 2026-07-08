@@ -4,13 +4,353 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d751713988987e9331980363e24189ce",
-    "packages": [],
+    "content-hash": "f349c78ac6c6de001cbb3fea78cd2f26",
+    "packages": [
+        {
+            "name": "apiwrp/powerdns",
+            "version": "v0.1.0",
+            "source": {
+                "type": "git",
+                "url": "ssh://git@stash.newfold.com:7999/apiwrp/powerdns.git",
+                "reference": "679b707c2cad9b2718f5b4ff9a5862b870d2eb7a"
+            },
+            "dist": {
+                "type": "tar",
+                "url": "https://composer.ds.network/APIWrapper/dist/apiwrp/powerdns/apiwrp-powerdns-v0.1.0-81c0fa.tar",
+                "reference": "679b707c2cad9b2718f5b4ff9a5862b870d2eb7a",
+                "shasum": "e3d981d7d4e86989717d2ab441cecf2a9d7091cf"
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "kernel/network": "3.0.*"
+            },
+            "require-dev": {
+                "kernel/unit-test": "3.0.*",
+                "phpunit/phpunit": "11.5.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "DN\\PowerDNS\\": "src"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "DN\\PowerDNS\\Test\\": "tests"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "coverage": [
+                    "phpunit --coverage-html build/coverage"
+                ]
+            },
+            "description": "The wrapper for Power DNS API",
+            "homepage": "https://stash.newfold.com/projects/APIWRP/repos/powerdns/browse",
+            "time": "2026-07-05T23:53:40+00:00"
+        },
+        {
+            "name": "kernel/activemq",
+            "version": "v2.0.1",
+            "source": {
+                "type": "git",
+                "url": "ssh://git@stash.newfold.com:7999/kernel/activemq.git",
+                "reference": "2d15b3840cf5a7405591fcab1c2cf48a4262151f"
+            },
+            "dist": {
+                "type": "tar",
+                "url": "https://composer.ds.network/Kernel/dist/kernel/activemq/kernel-activemq-v2.0.1-8801fa.tar",
+                "reference": "2d15b3840cf5a7405591fcab1c2cf48a4262151f",
+                "shasum": "f03e4f5e3ac099a679837f43f1714e833ffeffa1"
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-stomp": "*",
+                "kernel/core": "2.0.*",
+                "kernel/profiling": "1.0.*"
+            },
+            "require-dev": {
+                "kernel/unit-test": "3.0.*",
+                "phpunit/phpunit": "11.5.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "DN\\": "src"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "DN\\Activemq\\Tests\\": "tests"
+                }
+            },
+            "description": "Library for working with ActiveMQ message queue",
+            "homepage": "https://stash.newfold.com/projects/KERNEL/repos/activemq/browse",
+            "keywords": [
+                "activemq",
+                "message queue",
+                "queue"
+            ],
+            "time": "2025-12-03T13:25:28+00:00"
+        },
+        {
+            "name": "kernel/core",
+            "version": "v2.0.0",
+            "source": {
+                "type": "git",
+                "url": "ssh://git@stash.newfold.com:7999/kernel/core.git",
+                "reference": "0b7eaac915b19139b574bbb8950d9e974f2a7f0b"
+            },
+            "dist": {
+                "type": "tar",
+                "url": "https://composer.ds.network/Kernel/dist/kernel/core/kernel-core-v2.0.0-b3df94.tar",
+                "reference": "0b7eaac915b19139b574bbb8950d9e974f2a7f0b",
+                "shasum": "c174ab739f51fae6477fe781cc1b9d1aa2544e78"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^11"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "DN\\core\\": "src"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "DN\\core\\Tests\\": "tests"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "coverage": [
+                    "@putenv XDEBUG_MODE=coverage",
+                    "phpunit --coverage-html build/coverage"
+                ]
+            },
+            "description": "Core library",
+            "homepage": "https://stash.newfold.com/projects/KERNEL/repos/core/browse",
+            "keywords": [
+                "config",
+                "environment",
+                "executing_mode"
+            ],
+            "time": "2025-12-03T07:42:41+00:00"
+        },
+        {
+            "name": "kernel/debug",
+            "version": "v3.0.0",
+            "source": {
+                "type": "git",
+                "url": "ssh://git@stash.newfold.com:7999/kernel/debug.git",
+                "reference": "38645a8abb379c055c4740b4df9b4520d17e083d"
+            },
+            "dist": {
+                "type": "tar",
+                "url": "https://composer.ds.network/Kernel/dist/kernel/debug/kernel-debug-v3.0.0-80980c.tar",
+                "reference": "38645a8abb379c055c4740b4df9b4520d17e083d",
+                "shasum": "c55b773892c4c4b4b8728d0800ca8468087664b5"
+            },
+            "require": {
+                "ext-curl": "*",
+                "kernel/activemq": "2.0.*",
+                "kernel/logging": "2.0.*"
+            },
+            "require-dev": {
+                "kernel/unit-test": "3.0.*",
+                "phpunit/phpunit": "11.5.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "DN\\debug\\": "src"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "DN\\debug\\Tests\\": "tests"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "coverage": [
+                    "@putenv XDEBUG_MODE=coverage",
+                    "phpunit --coverage-html build/coverage"
+                ]
+            },
+            "description": "Library for debug and logging errors in bugtracker",
+            "homepage": "https://stash.newfold.com/projects/KERNEL/repos/debug/browse",
+            "keywords": [
+                "bugtracker",
+                "debug",
+                "logger"
+            ],
+            "time": "2025-12-03T14:03:09+00:00"
+        },
+        {
+            "name": "kernel/logging",
+            "version": "v2.0.0",
+            "source": {
+                "type": "git",
+                "url": "ssh://git@stash.newfold.com:7999/kernel/logging.git",
+                "reference": "3dcc0953465ee462a1a8cea280b5cad07123d4d0"
+            },
+            "dist": {
+                "type": "tar",
+                "url": "https://composer.ds.network/Kernel/dist/kernel/logging/kernel-logging-v2.0.0-1c81df.tar",
+                "reference": "3dcc0953465ee462a1a8cea280b5cad07123d4d0",
+                "shasum": "bceeb6e9077ff59713f3b36e0f2c75f599e443b0"
+            },
+            "require-dev": {
+                "kernel/helpers": "1.3.*",
+                "kernel/unit-test": "3.0.*",
+                "phpunit/phpunit": "^11"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "DN\\logging\\": "src"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "DN\\logging\\Tests\\": "tests"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "coverage": [
+                    "@putenv XDEBUG_MODE=coverage",
+                    "phpunit --coverage-html build/coverage"
+                ]
+            },
+            "description": "Library for logging errors",
+            "homepage": "https://stash.newfold.com/projects/KERNEL/repos/logging/browse",
+            "keywords": [
+                "logger",
+                "logging",
+                "transport"
+            ],
+            "time": "2025-12-03T08:57:58+00:00"
+        },
+        {
+            "name": "kernel/network",
+            "version": "v3.0.0",
+            "source": {
+                "type": "git",
+                "url": "ssh://git@stash.newfold.com:7999/kernel/network.git",
+                "reference": "3e6eb455771e45ce99f918848530a509b57509fd"
+            },
+            "dist": {
+                "type": "tar",
+                "url": "https://composer.ds.network/Kernel/dist/kernel/network/kernel-network-v3.0.0-141a93.tar",
+                "reference": "3e6eb455771e45ce99f918848530a509b57509fd",
+                "shasum": "6f2609189ac182b0c217b621a7339b1652e3530f"
+            },
+            "require": {
+                "ext-curl": "*",
+                "kernel/debug": "3.0.*",
+                "kernel/profiling": "1.0.*"
+            },
+            "require-dev": {
+                "kernel/unit-test": "3.0.*",
+                "phpunit/phpunit": "11.5.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "DN\\network\\": "src"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "DN\\network\\Tests\\": "tests"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "coverage": [
+                    "@putenv XDEBUG_MODE=coverage",
+                    "phpunit --coverage-html build/coverage"
+                ]
+            },
+            "description": "Network library provide classes to simplify work with incoming and outgoing requests and responses",
+            "homepage": "https://stash.newfold.com/projects/KERNEL/repos/network/browse",
+            "keywords": [
+                "curl",
+                "renderer",
+                "request",
+                "response",
+                "upload"
+            ],
+            "time": "2025-12-03T16:18:27+00:00"
+        },
+        {
+            "name": "kernel/profiling",
+            "version": "v1.0.0",
+            "source": {
+                "type": "git",
+                "url": "ssh://git@stash.newfold.com:7999/kernel/profiling.git",
+                "reference": "76c83863a24a48c708f0f44bd26d8feff9727275"
+            },
+            "dist": {
+                "type": "tar",
+                "url": "https://composer.ds.network/Kernel/dist/kernel/profiling/kernel-profiling-v1.0.0-184e40.tar",
+                "reference": "76c83863a24a48c708f0f44bd26d8feff9727275",
+                "shasum": "ca8b9e916be73044701ed16b036a6898a2abef24"
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*"
+            },
+            "require-dev": {
+                "kernel/unit-test": "3.0.*",
+                "phpunit/phpunit": "11.5.*",
+                "squizlabs/php_codesniffer": "3.8.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "DN\\Kernel\\": "src",
+                    "DN\\Kernel\\Profiling\\Tests\\": "tests"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "coverage": [
+                    "@putenv XDEBUG_MODE=coverage",
+                    "phpunit --coverage-html build/coverage"
+                ],
+                "cs": [
+                    "phpcs --standard=PSR12 --colors -p -n --parallel=4 src tests"
+                ],
+                "csf": [
+                    "phpcbf --standard=PSR12 --colors -p -n --parallel=4 src tests"
+                ]
+            },
+            "description": "The library for profiling the PHP applications",
+            "homepage": "https://stash.newfold.com/projects/KERNEL/repos/profiling/browse",
+            "time": "2025-12-03T09:25:16+00:00"
+        }
+    ],
     "packages-dev": [],
     "aliases": [],
-    "minimum-stability": "stable",
+    "minimum-stability": "dev",
     "stability-flags": {},
-    "prefer-stable": false,
+    "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {},
     "platform-dev": {},

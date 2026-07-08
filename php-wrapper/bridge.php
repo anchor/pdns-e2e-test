@@ -115,7 +115,16 @@ try {
                     throw new RuntimeException('ID required', 400);
                 }
                 $zoneIdForLog = $zoneId;
-                $zone = $api->zones()->get($zoneId);
+                try {
+                    $zone = $api->zones()->get($zoneId);
+                } catch (PowerDNSException $e) {
+                    if (isZoneNotFound($e)) {
+                        $httpCode = 404;
+                        $responseBody = json_encode(['error' => 'Zone not found'], JSON_THROW_ON_ERROR);
+                        break;
+                    }
+                    throw $e;
+                }
                 $httpCode = 200;
                 $responseBody = json_encode([
                     'id' => $zone->id ?? $zoneId,
@@ -176,7 +185,7 @@ try {
                 try {
                     $api->zones()->delete($zoneId);
                 } catch (PowerDNSException $e) {
-                    if (isDeleteZoneNotFound($e)) {
+                    if (isZoneNotFound($e)) {
                         $httpCode = 404;
                         $responseBody = json_encode([
                             'deleted' => false,
@@ -390,7 +399,7 @@ function httpStatusFromCode(int $code, int $fallback): int
  * kernel/network may report missing URLs as status 0 with "URL is not found"
  * rather than HTTP 404, so match on code or message.
  */
-function isDeleteZoneNotFound(PowerDNSException $e): bool
+function isZoneNotFound(PowerDNSException $e): bool
 {
     if ((int) $e->getCode() === 404) {
         return true;

@@ -20,7 +20,7 @@
     }
   ],
   "require": {
-    "apiwrp/powerdns": "0.0.1"
+    "apiwrp/powerdns": "0.1.0"
   },
   "config": {
     "sort-packages": true
