@@ -10,7 +10,7 @@ use DN\PowerDNS\Entity\RRSetRecord;
 use DN\PowerDNS\Entity\RRSetComment;
 use DN\PowerDNS\Enum\RecordType;
 use DN\PowerDNS\Logging\RequestLogger;
-use DN\PowerDNS\Exception as PowerDNSException;
+use DN\PowerDNS\Exception\Exception as PowerDNSException;
 
 class FileLogger implements RequestLogger
 {
@@ -103,7 +103,7 @@ try {
             throw new RuntimeException('PDNS_API_KEY not configured (set env or php-wrapper/config.local.php)', 503);
         }
 
-        $api = new API($url, $apiKey, $serverId);
+        $api = new API($url, $apiKey, $serverId, logger: $fileLogger);
 
         switch ($action) {
             case 'getZone':
@@ -115,18 +115,22 @@ try {
                     throw new RuntimeException('ID required', 400);
                 }
                 $zoneIdForLog = $zoneId;
-                $zone = $api->zones()->get($zoneId);
-                if ($zone === null) {
-                    $httpCode = 404;
-                    $responseBody = json_encode(['error' => 'Zone not found'], JSON_THROW_ON_ERROR);
-                } else {
-                    $httpCode = 200;
-                    $responseBody = json_encode([
-                        'id' => $zoneId,
-                        'name' => $zone->name,
-                        'rrsets' => rrsetsToArray($zone->getRRSets()),
-                    ], JSON_THROW_ON_ERROR);
+                try {
+                    $zone = $api->zones()->get($zoneId);
+                } catch (PowerDNSException $e) {
+                    if (isZoneNotFound($e)) {
+                        $httpCode = 404;
+                        $responseBody = json_encode(['error' => 'Zone not found'], JSON_THROW_ON_ERROR);
+                        break;
+                    }
+                    throw $e;
                 }
+                $httpCode = 200;
+                $responseBody = json_encode([
+                    'id' => $zone->id ?? $zoneId,
+                    'name' => $zone->name,
+                    'rrsets' => rrsetsToArray($zone->getRRSets()),
+                ], JSON_THROW_ON_ERROR);
                 break;
 
             case 'createZone':
@@ -138,10 +142,13 @@ try {
                     throw new RuntimeException('name required', 400);
                 }
                 $zoneIdForLog = $body['name'];
-                $zone = new Zone(name: $body['name'], kind: 'Master');
-                  if (isset($body['rrsets']) && is_array($body['rrsets'])) {
-                      $zone->setRRSets(mapInputToRRSets($body['rrsets']));
-                  }
+                $kind = isset($body['kind']) && is_string($body['kind']) && $body['kind'] !== ''
+                    ? $body['kind']
+                    : 'Native';
+                $zone = new Zone(name: $body['name'], kind: $kind);
+                if (isset($body['rrsets']) && is_array($body['rrsets'])) {
+                    $zone->setRRSets(mapInputToRRSets($body['rrsets']));
+                }
                 $api->zones()->create($zone);
                 $httpCode = 201;
                 $responseBody = json_encode(['status' => 'created'], JSON_THROW_ON_ERROR);
@@ -160,7 +167,7 @@ try {
                 if (empty($body['name']) || !is_string($body['name'])) {
                     throw new RuntimeException('name required', 400);
                 }
-                $zone = new Zone($body['name']);
+                $zone = new Zone(name: $body['name']);
                 $api->zones()->update($zoneId, $zone);
                 $httpCode = 200;
                 $responseBody = json_encode(['status' => 'updated'], JSON_THROW_ON_ERROR);
@@ -178,7 +185,7 @@ try {
                 try {
                     $api->zones()->delete($zoneId);
                 } catch (PowerDNSException $e) {
-                    if ((int) $e->getCode() === 404) {
+                    if (isZoneNotFound($e)) {
                         $httpCode = 404;
                         $responseBody = json_encode([
                             'deleted' => false,
@@ -203,7 +210,6 @@ try {
                 }
                 $zoneIdForLog = $zoneId;
                 $rrApi = $api->rrsets($zoneId);
-                attachLibraryLogger($rrApi, $fileLogger);
                 $rrsets = $rrApi->getAll();
                 $httpCode = 200;
                 $responseBody = json_encode(rrsetsToArray($rrsets), JSON_THROW_ON_ERROR);
@@ -228,15 +234,10 @@ try {
                     $type = recordTypeFromString($typeString);
                 }
 
-                $zone = $api->zones()->get($zoneId);
-                if ($zone === null) {
-                    $httpCode = 404;
-                    $responseBody = json_encode(['error' => 'Zone not found'], JSON_THROW_ON_ERROR);
-                } else {
-                    $rrsets = filterRRSetsByNameAndType($zone->getRRSets(), $name, $type);
-                    $httpCode = 200;
-                    $responseBody = json_encode(rrsetsToArray($rrsets), JSON_THROW_ON_ERROR);
-                }
+                $rrApi = $api->rrsets($zoneId);
+                $rrsets = $rrApi->get($name, $type);
+                $httpCode = 200;
+                $responseBody = json_encode(rrsetsToArray($rrsets), JSON_THROW_ON_ERROR);
                 break;
 
             case 'replaceRRSet':
@@ -253,7 +254,6 @@ try {
                     throw new RuntimeException('rrsets array required', 400);
                 }
                 $rrApi = $api->rrsets($zoneId);
-                attachLibraryLogger($rrApi, $fileLogger);
                 $rrApi->replace(mapInputToRRSets($body['rrsets']));
                 $httpCode = 200;
                 $responseBody = json_encode(['status' => 'replaced'], JSON_THROW_ON_ERROR);
@@ -274,7 +274,6 @@ try {
                 }
                 $mapped = mapInputToRRSets($body['rrsets']);
                 $rrApi = $api->rrsets($zoneId);
-                attachLibraryLogger($rrApi, $fileLogger);
                 if (method_exists($rrApi, 'replaceAll')) {
                     $rrApi->replaceAll($mapped);
                 } else {
@@ -298,7 +297,6 @@ try {
                     throw new RuntimeException('rrsets array required', 400);
                 }
                 $rrApi = $api->rrsets($zoneId);
-                attachLibraryLogger($rrApi, $fileLogger);
                 $rrApi->delete(mapInputToRRSetKeys($body['rrsets']));
                 $httpCode = 200;
                 $responseBody = json_encode(['status' => 'deleted'], JSON_THROW_ON_ERROR);
@@ -397,6 +395,19 @@ function httpStatusFromCode(int $code, int $fallback): int
     return $fallback;
 }
 
+/**
+ * kernel/network may report missing URLs as status 0 with "URL is not found"
+ * rather than HTTP 404, so match on code or message.
+ */
+function isZoneNotFound(PowerDNSException $e): bool
+{
+    if ((int) $e->getCode() === 404) {
+        return true;
+    }
+
+    return stripos($e->getMessage(), 'not found') !== false;
+}
+
 function powerDnsExceptionErrors(PowerDNSException $e): array
 {
     if (property_exists($e, 'errors')) {
@@ -407,16 +418,6 @@ function powerDnsExceptionErrors(PowerDNSException $e): array
     }
 
     return [];
-}
-
-/**
- * @param object $rrApi
- */
-function attachLibraryLogger(object $rrApi, RequestLogger $logger): void
-{
-    if (method_exists($rrApi, 'setLogger')) {
-        $rrApi->setLogger($logger);
-    }
 }
 
 function recordTypeFromString(string $type): RecordType
@@ -488,8 +489,10 @@ function rrsetToArray(object $r): array
  *
  * Comments: if the JSON object has a "comments" key and its value is an array (including []),
  * RRSet::setComments() is called so an explicit empty array clears comments on replace. If
- * "comments" is omitted, setComments is not called (library-dependent whether existing comments
- * survive a replace).
+ * "comments" is omitted, setComments is not called; on the current library stack, replace may
+ * still clear comments when RRSet::toArray() emits an empty comments list in the PATCH payload.
+ *
+ * Comment timestamps: bridge input uses modified_at (snake_case, aligned with library entity).
  *
  * Records: "records" is optional; omitted or empty yields an RRSet with no records. Prefer
  * deleteRRSets to remove an RRSet if the server rejects a zero-record replace.
@@ -527,7 +530,7 @@ function mapInputToRRSets(array $data): array
                 $comments[] = new RRSetComment(
                     (string) $c['content'],
                     isset($c['account']) ? (string) $c['account'] : '',
-                    isset($c['modifiedAt']) ? (int) $c['modifiedAt'] : null
+                    isset($c['modified_at']) ? (int) $c['modified_at'] : null
                 );
             }
         }
@@ -567,34 +570,4 @@ function mapInputToRRSetKeys(array $data): array
     }
 
     return $rrsets;
-}
-
-/**
- * @param array<int, object> $rrsets
- * @return array<int, object>
- */
-function filterRRSetsByNameAndType(array $rrsets, string $name, ?RecordType $type): array
-{
-    $normalizedName = rtrim($name, '.') . '.';
-
-    return array_values(array_filter(
-        $rrsets,
-        static function (object $rrset) use ($normalizedName, $type): bool {
-            $rrsetName = rtrim((string) $rrset->name, '.') . '.';
-            if ($rrsetName !== $normalizedName) {
-                return false;
-            }
-
-            if ($type === null) {
-                return true;
-            }
-
-            $rrsetType = $rrset->type ?? null;
-            if ($rrsetType instanceof \UnitEnum) {
-                return $rrsetType === $type;
-            }
-
-            return (string) $rrsetType === $type->name;
-        }
-    ));
 }

@@ -211,9 +211,9 @@ public class PowerDNSApiTest {
                 .delete("/bridge.php")
                 .then()
                 .statusCode(404)
-                .log().all()
                 .contentType(ContentType.JSON)
-                .body("error", containsString("Failed to DELETE zone"));
+                .body("deleted", equalTo(false))
+                .body("error", equalTo("Zone not found"));
     }
 
     @Test(enabled = true)
@@ -635,10 +635,10 @@ public class PowerDNSApiTest {
 
     /**
      * When {@code comments} is omitted from the replace payload, the bridge does not call
-     * {@code setComments}; existing comments should remain if the PHP library preserves them.
+     * {@code setComments}. On the current PHP library stack, comments are cleared on replace.
      */
     @Test(enabled = true)
-    public void testReplaceRRSetOmitCommentsKeyPreservesExistingComments() {
+    public void testReplaceRRSetOmitCommentsKeyClearsCommentsOnReplace() {
         String zone = uniqueZoneFqdn();
         String host = "keep." + zone;
         registerCleanup(zone);
@@ -676,7 +676,6 @@ public class PowerDNSApiTest {
                 .get("/bridge.php")
                 .then()
                 .statusCode(200)
-                .log().all()
                 .body("[0].records[0].content", equalTo("192.0.2.20"))
                 .body("[0].ttl", equalTo(7200))
                 .body("[0].comments.size()", equalTo(0));

@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="PhpIncludePathManager">
+    <include_path>
+      <path value="$PROJECT_DIR$/php-wrapper/vendor/kernel/core" />
+      <path value="$PROJECT_DIR$/php-wrapper/vendor/composer" />
+      <path value="$PROJECT_DIR$/php-wrapper/vendor/apiwrp/powerdns" />
+      <path value="$PROJECT_DIR$/php-wrapper/vendor/kernel/debug" />
+      <path value="$PROJECT_DIR$/php-wrapper/vendor/kernel/profiling" />
+      <path value="$PROJECT_DIR$/php-wrapper/vendor/kernel/logging" />
+      <path value="$PROJECT_DIR$/php-wrapper/vendor/kernel/network" />
+      <path value="$PROJECT_DIR$/php-wrapper/vendor/kernel/activemq" />
+    </include_path>
+  </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.1" />
   <component name="PhpUnit">
     <phpunit_settings>

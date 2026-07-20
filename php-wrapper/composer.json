@@ -11,8 +11,8 @@
   ],
   "repositories": [
     {
-      "type": "composer",
-      "url": "https://composer.ds.network/APIWrapper/"
+      "type": "vcs",
+      "url": "ssh://git@stash.newfold.com:7999/apiwrp/powerdns.git"
     },
     {
       "type": "composer",
@@ -20,7 +20,7 @@
     }
   ],
   "require": {
-    "apiwrp/powerdns": "0.0.1"
+    "apiwrp/powerdns": "dev-master"
   },
   "config": {
     "sort-packages": true
