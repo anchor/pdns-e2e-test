@@ -235,7 +235,8 @@ try {
                 }
 
                 $rrApi = $api->rrsets($zoneId);
-                $rrsets = $rrApi->get($name, $type);
+                // PDNS 4.7.4 filtered ?rrset_name= GET omits disabled records; use full zone data.
+                $rrsets = filterRRSetsByNameAndType($rrApi->getAll(), $name, $type);
                 $httpCode = 200;
                 $responseBody = json_encode(rrsetsToArray($rrsets), JSON_THROW_ON_ERROR);
                 break;
@@ -570,4 +571,28 @@ function mapInputToRRSetKeys(array $data): array
     }
 
     return $rrsets;
+}
+
+/**
+ * @param array<int, RRSet> $rrsets
+ * @return array<int, RRSet>
+ */
+function filterRRSetsByNameAndType(array $rrsets, string $name, ?RecordType $type): array
+{
+    $normalizedName = rtrim($name, '.') . '.';
+
+    return array_values(array_filter(
+        $rrsets,
+        static function (RRSet $rrset) use ($normalizedName, $type): bool {
+            if (rtrim($rrset->name, '.') . '.' !== $normalizedName) {
+                return false;
+            }
+
+            if ($type === null) {
+                return true;
+            }
+
+            return $rrset->type === $type;
+        }
+    ));
 }

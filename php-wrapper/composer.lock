@@ -4,21 +4,15 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f349c78ac6c6de001cbb3fea78cd2f26",
+    "content-hash": "b706796e17c7ff802d963d63696349c9",
     "packages": [
         {
             "name": "apiwrp/powerdns",
-            "version": "v0.1.0",
+            "version": "dev-master",
             "source": {
                 "type": "git",
                 "url": "ssh://git@stash.newfold.com:7999/apiwrp/powerdns.git",
-                "reference": "679b707c2cad9b2718f5b4ff9a5862b870d2eb7a"
-            },
-            "dist": {
-                "type": "tar",
-                "url": "https://composer.ds.network/APIWrapper/dist/apiwrp/powerdns/apiwrp-powerdns-v0.1.0-81c0fa.tar",
-                "reference": "679b707c2cad9b2718f5b4ff9a5862b870d2eb7a",
-                "shasum": "e3d981d7d4e86989717d2ab441cecf2a9d7091cf"
+                "reference": "452defc5a53826d4601efc782212895cf0eead9b"
             },
             "require": {
                 "ext-curl": "*",
@@ -29,6 +23,7 @@
                 "kernel/unit-test": "3.0.*",
                 "phpunit/phpunit": "11.5.*"
             },
+            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
@@ -50,7 +45,7 @@
             },
             "description": "The wrapper for Power DNS API",
             "homepage": "https://stash.newfold.com/projects/APIWRP/repos/powerdns/browse",
-            "time": "2026-07-05T23:53:40+00:00"
+            "time": "2026-07-21T01:29:00+00:00"
         },
         {
             "name": "kernel/activemq",
@@ -349,7 +344,9 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": {},
+    "stability-flags": {
+        "apiwrp/powerdns": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {},
